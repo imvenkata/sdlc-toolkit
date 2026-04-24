@@ -1,0 +1,25 @@
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "gitlab-token",
+      "description": "GitLab Personal Access Token",
+      "password": true
+    }
+  ],
+  "servers": {
+    "gitlab": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@zereight/mcp-gitlab"],
+      "env": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "${input:gitlab-token}",
+        "GITLAB_API_URL": "https://gitlab.com/api/v4",
+        "GITLAB_READ_ONLY_MODE": "false",
+        "USE_PIPELINE": "true",
+        "USE_MILESTONE": "true",
+        "USE_GITLAB_WIKI": "true"
+      }
+    }
+  }
+}
