@@ -150,6 +150,8 @@ For each (max 10): `list_merge_request_changed_files(...)` — check file inters
 
 After gathering context, dispatch analysis to specialist sub-agents. Each sub-agent operates in an isolated context and returns structured findings.
 
+> **Parallelization:** The three sub-agents are **independent** — none of their inputs depend on another sub-agent's output. Dispatch them concurrently where the runtime supports it. Do not wait for one to complete before starting the next.
+
 ### Delegation Matrix
 
 | Sub-Agent | Receives | Returns | Quick | Standard | Deep |
@@ -343,3 +345,68 @@ If a `mr-reviewer-config` block is present in the MR description, parse it and:
 8. Respect approvals — report state, never approve/unapprove.
 9. Sub-agent findings are advisory — the orchestrator makes final scoring decisions.
 10. Always include the Review Metadata footer for observability.
+
+---
+
+## MCP Tool Reference
+
+> ACI note: Incorrect parameters silently return empty or unexpected results on these tools. Read edge cases carefully.
+
+### `get_merge_request`
+```
+get_merge_request(project_id="<project>", mergeRequestIid=<iid>)
+```
+- Use `mergeRequestIid` (internal project ID, e.g. `42`), NOT the global MR ID
+- Returns: `iid`, `title`, `description`, `state`, `draft`, `source_branch`, `target_branch`, `author`, `labels`, `milestone`, `merge_status`, `web_url`
+- Parse `description` for issue refs using patterns: `#<N>`, `Closes #<N>`, `Fixes #<N>` — these are the linked issues
+- `draft: true` means the MR is not ready to merge — relax Completeness expectations
+
+### `list_merge_request_changed_files`
+```
+list_merge_request_changed_files(project_id="<project>", mergeRequestIid=<iid>,
+  excluded_file_patterns=["*.lock", "package-lock.json", "*.min.js", "*.min.css", "*.map"])
+```
+- Always exclude lock files and minified assets — they inflate file counts and add no review value
+- Returns `new_path`, `old_path`, `new_file`, `deleted_file`, `renamed_file` per file
+- Classify each file by priority tier BEFORE fetching diffs — this determines which diffs to fetch
+- If the MR has >30 files, only fetch diffs for 🔴 Critical and 🟡 Important files
+
+### `get_merge_request_file_diff`
+```
+get_merge_request_file_diff(project_id="<project>", mergeRequestIid=<iid>,
+  file_paths=["path/to/file1", "path/to/file2"])
+```
+- Batch 3-5 files per call — never fetch one file at a time or all files at once
+- `file_paths` must use the `new_path` from the changed files response
+- A diff >500 changed lines in a single file exceeds useful analysis threshold — flag for manual review
+- Binary files return no diff content — skip and note as "binary file, not analysed"
+
+### `get_issue`
+```
+get_issue(project_id="<project>", issue_iid=<iid>)
+```
+- `issue_iid` is the project-scoped issue number (e.g. `15`), NOT the global issue ID
+- Acceptance criteria are usually in the `description` field — look for checklist format (`- [ ]`) or labelled sections (`## Acceptance Criteria`)
+- If no acceptance criteria found: Requirements Alignment = N/A, adjust scoring total accordingly
+- Do NOT assume requirements from the issue title alone
+
+### `get_merge_request_approval_state`
+```
+get_merge_request_approval_state(project_id="<project>", mergeRequestIid=<iid>)
+```
+- Returns `approved_by` list and `required_approvals` count
+- If `required_approvals` is 0, the project has no approval rules — do not penalise CI/CD Health for this
+- An MR can be mergeable with 0 approvals if rules are not configured
+
+### `create_note` / `create_merge_request_thread`
+```
+create_note(project_id="<project>", noteable_type="MergeRequest", noteable_id=<iid>, body="<text>")
+create_merge_request_thread(project_id="<project>", mergeRequestIid=<iid>, body="<text>",
+  position={"base_sha":"<sha>","head_sha":"<sha>","start_sha":"<sha>",
+             "new_path":"<file>","new_line":<line>,"position_type":"text"})
+```
+- `create_note` posts a general comment — use for summary write-backs (Option C)
+- `create_merge_request_thread` posts an inline comment — requires the `position` object with exact SHAs from the MR
+- SHAs for position come from `list_merge_request_versions` → latest version's `base_commit_sha`, `head_commit_sha`, `start_commit_sha`
+- **Never write back without explicit user confirmation** — always ask first
+

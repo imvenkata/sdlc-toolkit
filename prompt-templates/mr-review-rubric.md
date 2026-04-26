@@ -17,7 +17,9 @@
 | **3** | Most criteria covered. 1-2 minor gaps identified but not blocking. |
 | **2** | Several criteria partially met. Notable gaps in implementation. |
 | **1** | Major requirements not addressed. MR does not fulfill the issue. |
-| **N/A** | No linked issues or no acceptance criteria defined. |
+| **N/A** | No linked issues or no acceptance criteria defined in any linked issue. |
+
+**If N/A:** Write exactly: `Requirements Alignment: N/A — [reason: no linked issues / no acceptance criteria defined]`. Remove this dimension from the total and apply the dynamic N/A adjustment formula.
 
 **Assessment method:**
 1. List each acceptance criterion from the linked issue(s) — check description AND discussions
@@ -38,6 +40,9 @@
 | **3** | Core implementation works but missing some tests or docs. Acceptable for Draft MRs. |
 | **2** | Incomplete implementation. Several supporting artifacts missing. |
 | **1** | Partial implementation. Core functionality not fully working. |
+| **N/A** | MR has 0 changed files, or all changed files were excluded (binary, lock files). |
+
+**If N/A:** Write exactly: `Completeness: N/A — [reason]`. Remove from total.
 
 **Checklist:**
 - [ ] Unit/integration tests added or updated for new code paths
@@ -62,6 +67,9 @@
 | **3** | Some risks present. Partial mitigation. |
 | **2** | Notable risks without mitigation. Needs attention before merge. |
 | **1** | Critical: security vulnerabilities, data loss potential, secrets exposed, or unguarded breaking changes. |
+| **N/A** | MR contains no code changes (e.g. docs-only, label-only). |
+
+**If N/A:** Write exactly: `Security & Risk: N/A — docs-only or non-code change`. Remove from total.
 
 *The security-scanner sub-agent produces the security findings used for scoring this dimension. Refer to SKILL.md § Security Scan Patterns and § Breaking Change Indicators for the authoritative pattern lists.*
 
@@ -76,6 +84,9 @@
 | **3** | Acceptable. Some naming issues or minor redundancy. |
 | **2** | Below standard. Poor structure or missing error handling. |
 | **1** | Very poor. Hard to read, no error handling, significant redundancy. |
+| **N/A** | No reviewable code diffs available (all files binary, excluded, or diff fetch failed). |
+
+**If N/A:** Write exactly: `Code Quality: N/A — [reason]`. Remove from total.
 
 *The code-quality-reviewer sub-agent produces the quality findings used for scoring this dimension. Refer to SKILL.md § Code Quality Signals for the authoritative signal lists.*
 
@@ -90,30 +101,19 @@
 | **3** | Some inconsistencies with project patterns. |
 | **2** | Noticeably different from existing code style. |
 | **1** | Completely ignores project conventions. |
+| **N/A** | Insufficient existing codebase context to assess conventions (e.g. new project / single file). |
 
-**Consistency checks:**
-- File/folder naming conventions
-- Code formatting and style
-- Error handling patterns
-- Logging conventions
-- Import ordering
-- Architecture patterns (layering, dependency injection, etc.)
-- Test naming and structure
-- Comment style and documentation format
+**If N/A:** Write exactly: `Consistency: N/A — [reason]`. Remove from total.
 
-*The code-quality-reviewer sub-agent includes consistency assessment in its output.*
-
----
-
-### 6. CI/CD Health (1-5)
-
-| Score | Criteria |
 |-------|----------|
 | **5** | Pipeline green, all approvals met, no conflicts, branch up to date with target. |
 | **4** | Pipeline green, minor approval pending or slightly behind target. |
 | **3** | Pipeline green but required approvals missing, OR pipeline has non-blocking (`allow_failure`) failures. |
 | **2** | Pipeline failing on non-critical stage, OR significant approval gaps. |
 | **1** | Pipeline failing on critical stage (build/test), merge blocked, conflicts present. |
+| **N/A** | No pipeline has been run on this MR's branch. |
+
+**If N/A:** Write exactly: `CI/CD Health: N/A — no pipeline found on source branch`. Remove from total.
 
 **Data sources:**
 - Pipeline status from `list_pipelines` + `get_pipeline`

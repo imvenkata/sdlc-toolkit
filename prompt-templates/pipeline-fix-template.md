@@ -50,26 +50,30 @@
 
 **Diagnosis:**
 [One paragraph: what caused the failure and why — from log-analyser sub-agent]
+*If log-analyser returned no diagnosis: write "N/A — log-analyser did not return results. Manual investigation required."*
 
 **Proposed Fix — Confidence: [N]/5 [emoji]**
 
 | Field | Value |
 |-------|-------|
-| **Root Cause** | [one sentence] |
+| **Root Cause** | [one sentence — or "N/A — insufficient data to determine root cause"] |
 | **Category** | CI Config / Source / Dependency / Docker |
-| **File** | `[file_path]` |
-| **Auto-fix Safe** | Yes (confidence ≥ 4) / No (confidence ≤ 3) |
+| **File** | `[file_path]` — or `N/A — infrastructure failure, no file change needed` |
+| **Auto-fix Safe** | Yes (confidence ≥ 4) / No (confidence ≤ 3) / N/A (retry recommended) |
 
 **Diff:**
 ```diff
 - [old line]
 + [new line]
 ```
+*If no code fix is needed (retry or infrastructure): write "N/A — no code change required. Action: [retry/manual]."*
 
 **Why**: [Error → Cause → Fix chain — from fix-generator sub-agent]
+*If fix-generator was not invoked: write "N/A — fix-generator not invoked (diagnose-only mode or retry path)."*
 
 **Commit:** `[sha_short]` — `[commit message]`
-**Result:** `✅ Passed` / `❌ Failed (different error)` / `❌ Failed (same error)`
+*If no commit was made: write "N/A — no push performed."*
+**Result:** `✅ Passed` / `❌ Failed (different error)` / `❌ Failed (same error)` / `⏳ Pending (pipeline still running)`
 
 ---
 

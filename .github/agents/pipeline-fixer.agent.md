@@ -436,3 +436,66 @@ Summary structure:
 14. **Confidence inheritance** — fix confidence cannot exceed diagnosis confidence. Cap and note if violated.
 15. **Audit every session** — post machine-readable audit notes to GitLab in Fix/Auto-fix modes.
 16. **Cost transparency** — report estimated token usage after each iteration.
+
+---
+
+## MCP Tool Reference
+
+> ACI note: Tool calls that are wrong or missing key parameters silently return empty results. These are the highest-risk call sites — read the edge cases before using.
+
+### `get_pipeline` / `list_pipelines`
+```
+get_pipeline(project_id="<project>", pipeline_id=<id>)
+list_pipelines(project_id="<project>", ref="<branch>", per_page=1, status="failed")
+```
+- `project_id` must be a numeric ID or URL-encoded path (`group%2Fproject`), never a plain slash path
+- `list_pipelines` without `status` returns ALL pipelines — always filter by `status="failed"` when looking for failures
+- `per_page=1` returns the most recent only; omit to get multiple (default 20)
+- Response includes `id`, `ref`, `sha`, `status`, `failure_reason`, `duration` — extract all before proceeding
+
+### `list_pipeline_jobs`
+```
+list_pipeline_jobs(project_id="<project>", pipeline_id=<id>)
+```
+- Returns ALL jobs across all stages in a single call — no pagination needed for most pipelines
+- Key fields: `id`, `name`, `stage`, `status`, `allow_failure`, `runner`, `duration`
+- `status` values: `created`, `pending`, `running`, `failed`, `success`, `canceled`, `skipped`, `manual`
+- Jobs with `allow_failure: true` and `status: failed` are **not blocking** — skip them when identifying the root failure
+- Skipped jobs (`status: skipped`) mean their stage was never reached — not a failure
+
+### `get_pipeline_job_output`
+```
+get_pipeline_job_output(project_id="<project>", job_id=<id>)
+```
+- Returns the raw log as plain text — pass directly to `log-analyser` without pre-processing
+- Logs can be very large (10,000+ lines). The log-analyser handles truncation internally
+- If the job is still running, this returns partial output — check job `status` first
+- If the response is empty, the job likely has no log (e.g., a runner-level failure before job start) — report as "no log available"
+
+### `get_file_contents`
+```
+get_file_contents(project_id="<project>", file_path=".gitlab-ci.yml", ref="<branch>")
+```
+- `ref` must match the pipeline's branch (`sha` or branch name) — always use the branch from the pipeline metadata, not `main`
+- File not found returns a 404 — treat as "CI config missing" error category
+- Content is base64-encoded in some responses — decode before parsing YAML
+- For `include:` directives, fetch each referenced file separately in the same call pattern
+
+### `create_or_update_file` / `push_files`
+```
+create_or_update_file(project_id="<project>", file_path="<path>", branch="fix/ci-<id>",
+  content="<base64_or_plain>", commit_message="<msg>", start_branch="<source>")
+```
+- Always set `branch` to the fix branch (`fix/ci-<pipeline_id>`), never to the source branch directly
+- `start_branch` must be the original branch (where the failure occurred) so the fix branches from the right commit
+- Attempting to write to a protected branch returns 403 — catch this and create a fix branch instead
+- Omitting `commit_message` causes a validation error — always include it
+
+### `create_pipeline`
+```
+create_pipeline(project_id="<project>", ref="<branch>")
+```
+- `ref` must be the fix branch, not the original failing branch
+- Returns the new `pipeline_id` immediately — store it before proceeding to Phase 5 verify
+- If the branch has no CI config changes yet, this triggers a pipeline on the old config — always push the fix first
+
