@@ -5,7 +5,7 @@ version: "3.1.0"
 model: "claude-sonnet-4.5"
 tools:
   - "agent"
-  - "gitlab/*"
+  - "gitlab-mcp/*"
 agents:
   - "log-analyser"
   - "fix-generator"

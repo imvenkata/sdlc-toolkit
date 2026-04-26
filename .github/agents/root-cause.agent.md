@@ -4,7 +4,7 @@ description: "Systematically investigates pipeline failures and bugs by gatherin
 version: "3.1.0"
 model: "claude-sonnet-4.5"
 tools:
-  - "gitlab/*"
+  - "gitlab-mcp/*"
 ---
 
 # Root Cause Analysis Summarizer

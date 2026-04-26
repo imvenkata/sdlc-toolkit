@@ -31,7 +31,7 @@ graph TB
     end
 
     subgraph "Sub-Agent Layer"
-        SS["🛡️ Security Scanner<br/>security-scanner.agent.md<br/>(gpt-4o-mini)"]
+        SS["🛡️ Security Scanner<br/>security-scanner.agent.md<br/>(gpt-5-mini)"]
         RT["📎 Requirements Tracer<br/>requirements-tracer.agent.md<br/>(claude-sonnet-4.6)"]
         CQ["🔍 Code Quality Reviewer<br/>code-quality-reviewer.agent.md<br/>(claude-sonnet-4)"]
     end
@@ -86,7 +86,7 @@ graph TB
 | Decision | Rationale |
 |----------|-----------|
 | **Orchestrator makes all MCP calls** | Sub-agents have `tools: []` — they receive only the data they need, never access GitLab directly. |
-| **gpt-4o-mini for security scanning** | Security pattern matching is rule-based — fast and cheap is sufficient. |
+| **gpt-5-mini for security scanning** | Security pattern matching is rule-based — fast and cheap is sufficient. |
 | **claude-sonnet-4.6 for requirements tracing** | Mapping acceptance criteria to code changes requires strong reasoning. |
 | **claude-sonnet-4 for code quality** | Quality assessment benefits from understanding code structure and idioms. |
 | **7 scoring dimensions** | Covers the full spectrum from requirements to CI health, enabling objective verdicts. |

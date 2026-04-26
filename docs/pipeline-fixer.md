@@ -31,7 +31,7 @@ graph TB
     end
 
     subgraph "Sub-Agent Layer"
-        LA["🔍 Log Analyser<br/>log-analyser.agent.md<br/>(gpt-4o-mini)"]
+        LA["🔍 Log Analyser<br/>log-analyser.agent.md<br/>(gpt-5-mini)"]
         FG["🛠️ Fix Generator<br/>fix-generator.agent.md<br/>(claude-sonnet-4.6)"]
     end
 
@@ -90,7 +90,7 @@ graph TB
 | Decision | Rationale |
 |----------|-----------|
 | **Orchestrator makes all MCP calls** | Sub-agents have `tools: []` — they can't access GitLab directly. This centralises all external I/O in one place for auditability. |
-| **gpt-4o-mini for log analysis** | Log parsing is pattern matching — fast and cheap is better than powerful. |
+| **gpt-5-mini for log analysis** | Log parsing is pattern matching — fast and cheap is better than powerful. |
 | **claude-sonnet-4.6 for fix generation** | Generating correct minimal code fixes requires strong reasoning. |
 | **claude-sonnet-4.5 for orchestration** | Coordination needs large context windows and good planning. |
 

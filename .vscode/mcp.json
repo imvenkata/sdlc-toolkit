@@ -8,10 +8,13 @@
     }
   ],
   "servers": {
-    "gitlab": {
+    "gitlab-mcp": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@zereight/mcp-gitlab"],
+      "args": [
+        "-y",
+        "@zereight/mcp-gitlab"
+      ],
       "env": {
         "GITLAB_PERSONAL_ACCESS_TOKEN": "${input:gitlab-token}",
         "GITLAB_API_URL": "https://gitlab.com/api/v4",
@@ -24,7 +27,10 @@
     "gitlab-readonly": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@zereight/mcp-gitlab"],
+      "args": [
+        "-y",
+        "@zereight/mcp-gitlab"
+      ],
       "env": {
         "GITLAB_PERSONAL_ACCESS_TOKEN": "${input:gitlab-token}",
         "GITLAB_API_URL": "https://gitlab.com/api/v4",

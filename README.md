@@ -19,9 +19,9 @@ A suite of 11 AI-powered agents (6 user-facing + 5 specialist sub-agents) that i
 
 | Sub-Agent | Orchestrator | Purpose | Model |
 |-----------|-------------|---------|-------|
-| **Log Analyser** | Pipeline Fixer | Log sanitisation, error extraction, failure classification | `gpt-4o-mini` |
+| **Log Analyser** | Pipeline Fixer | Log sanitisation, error extraction, failure classification | `gpt-5-mini` |
 | **Fix Generator** | Pipeline Fixer | Minimal fix generation with confidence scoring | `claude-sonnet-4.6` |
-| **Security Scanner** | MR Reviewer | Security pattern detection in file diffs | `gpt-4o-mini` |
+| **Security Scanner** | MR Reviewer | Security pattern detection in file diffs | `gpt-5-mini` |
 | **Requirements Tracer** | MR Reviewer | Issue acceptance criteria → code traceability | `claude-sonnet-4.6` |
 | **Code Quality Reviewer** | MR Reviewer | Quality, consistency, and completeness analysis | `claude-sonnet-4` |
 
@@ -80,12 +80,12 @@ graph TD
     U --> IA["@impact-analysis"]
     U --> RN["@release-notes"]
 
-    PF -->|"logs + CI config"| LA["log-analyser<br/>(gpt-4o-mini)"]
+    PF -->|"logs + CI config"| LA["log-analyser<br/>(gpt-5-mini)"]
     PF -->|"diagnosis + source"| FG["fix-generator<br/>(claude-sonnet-4.6)"]
     LA -->|"diagnosis"| PF
     FG -->|"fix + confidence"| PF
 
-    MR -->|"diffs"| SS["security-scanner<br/>(gpt-4o-mini)"]
+    MR -->|"diffs"| SS["security-scanner<br/>(gpt-5-mini)"]
     MR -->|"issues + diffs"| RT["requirements-tracer<br/>(claude-sonnet-4.6)"]
     MR -->|"diffs + language"| CQ["code-quality-reviewer<br/>(claude-sonnet-4)"]
     SS -->|"findings"| MR

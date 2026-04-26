@@ -1,7 +1,7 @@
 ---
 name: "Log Analyser"
 description: "Sub-agent that parses CI/CD job log output, sanitises sensitive data, extracts error signatures, classifies failure type, and identifies root cause. Not user-invocable — called only by the Pipeline Fixer orchestrator."
-model: "gpt-4o-mini"
+model: "gpt-5-mini"
 user-invocable: false
 tools: []
 ---

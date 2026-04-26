@@ -1,7 +1,7 @@
 ---
 name: "Security Scanner"
 description: "Sub-agent that performs security and risk analysis on MR file diffs. Returns structured findings with severity, file:line citations, and remediation guidance. Not user-invocable — called only by the MR Reviewer orchestrator."
-model: "gpt-4o-mini"
+model: "gpt-5-mini"
 user-invocable: false
 tools: []
 ---

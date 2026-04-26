@@ -4,7 +4,7 @@ description: "Maps the blast radius of merge requests by analyzing file dependen
 version: "3.1.0"
 model: "claude-sonnet-4"
 tools:
-  - "gitlab/*"
+  - "gitlab-mcp/*"
 ---
 
 # Impact Analysis Agent
