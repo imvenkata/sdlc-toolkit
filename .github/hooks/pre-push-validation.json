@@ -1,0 +1,46 @@
+{
+  "$schema": "https://github.com/github/copilot-hooks-schema/v1",
+  "name": "Pipeline Fixer — Pre-Push Validation",
+  "description": "Intercepts file push operations to enforce branch protection and log all write operations for audit compliance.",
+  "version": "1.0.0",
+  "event": "preToolUse",
+  "tools": ["create_or_update_file", "push_files"],
+  "rules": [
+    {
+      "id": "block-protected-branches",
+      "description": "Block direct pushes to protected branches in auto-fix mode. Force fix-branch creation instead.",
+      "severity": "error",
+      "condition": {
+        "branch_pattern": "^(main|master|production|release/.*)$",
+        "mode": "auto-fix"
+      },
+      "action": "block",
+      "message": "🛑 Auto-fix push blocked: branch '{branch}' is protected. The orchestrator should create a fix branch (fix/ci-{pipeline_id}) instead. Falling back to Fix mode."
+    },
+    {
+      "id": "warn-non-fix-branch",
+      "description": "Warn when pushing to any branch not matching the fix/ci-* convention.",
+      "severity": "warning",
+      "condition": {
+        "branch_pattern_not": "^fix/ci-.*$",
+        "exclude_branches": ["main", "master", "production"]
+      },
+      "action": "warn",
+      "message": "⚠️ Push target '{branch}' does not match the fix/ci-* convention. Ensure this is intentional."
+    },
+    {
+      "id": "log-all-pushes",
+      "description": "Log every push attempt for audit trail.",
+      "severity": "info",
+      "condition": {
+        "always": true
+      },
+      "action": "log",
+      "fields": ["project_id", "branch", "file_paths", "commit_message", "confidence_score", "iteration", "timestamp"]
+    }
+  ],
+  "metadata": {
+    "agent": "pipeline-fixer",
+    "version": "3.0.0"
+  }
+}

@@ -1,6 +1,8 @@
 ---
 name: "Root Cause Analyzer"
 description: "Systematically investigates pipeline failures and bugs by gathering evidence from GitLab pipelines, job logs, commits, and historical issues via MCP. Produces ranked hypotheses with evidence chains — never guesses."
+version: "3.1.0"
+model: "claude-sonnet-4.5"
 tools:
   - "gitlab/*"
 ---

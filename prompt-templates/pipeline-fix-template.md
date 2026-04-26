@@ -1,6 +1,6 @@
 # Pipeline Fix Report Template
 
-> **Version**: 3.0.0
+> **Version**: 3.1.0
 >
 > This file defines the output template for pipeline fix reports. Error patterns and fix examples live in `.github/skills/pipeline-fixer/SKILL.md` — the single source of truth.
 
@@ -166,4 +166,7 @@ When fixing one stage reveals a new failure in the next stage, track the cascade
 | **Sub-agents** | `[log-analyser, fix-generator]` |
 | **Log lines processed** | `[count]` |
 | **Values sanitised** | `[count]` |
-| **Agent version** | `3.0.0` |
+| **Estimated tokens** | `[cumulative total across iterations]` |
+| **Confidence capped** | `[Yes — capped from X to Y / No]` |
+| **Audit note posted** | `[Yes — note #ID / No — reason]` |
+| **Agent version** | `3.1.0` |

@@ -1,6 +1,8 @@
 ---
 name: "Sprint Intelligence"
 description: "Generates data-driven sprint health reports by analyzing GitLab milestones, issues, merge requests, and burndown data via MCP. Computes velocity, completion rates, blocker analysis, and risk indicators."
+version: "3.1.0"
+model: "gpt-4o-mini"
 tools:
   - "gitlab/*"
 ---

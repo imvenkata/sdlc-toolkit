@@ -1,6 +1,6 @@
 ---
 name: pipeline-fixer
-version: "3.0.0"
+version: "3.1.0"
 description: "Single source of truth for CI/CD pipeline fixing: error pattern lookup tables by stage, CI config diagnostics, log sanitisation patterns, advanced CI config patterns, example YAML fixes, and commit conventions. Referenced by the Pipeline Fixer orchestrator and its sub-agents."
 ---
 
@@ -112,6 +112,37 @@ Before processing job logs, the log-analyser sub-agent MUST redact these pattern
 |---------|-----------|-------------|
 | AWS Secret Key | `(?i)aws_secret_access_key\s*[:=]\s*\S+` | `aws_secret_access_key=[REDACTED]` |
 | AWS Session Token | `(?i)aws_session_token\s*[:=]\s*\S+` | `aws_session_token=[REDACTED]` |
+
+### GCP / Azure / Other Cloud
+| Pattern | Regex Hint | Replacement |
+|---------|-----------|-------------|
+| GCP service account key | `"private_key"\s*:\s*"-----BEGIN` (in JSON) | `"private_key": "[REDACTED_GCP_KEY]"` |
+| GCP OAuth token | `ya29\.[A-Za-z0-9_-]{20,}` | `[REDACTED_GCP_TOKEN]` |
+| Azure SAS token | `\?sv=.*&sig=[A-Za-z0-9%+/=]+` | `?sv=...&sig=[REDACTED_SAS]` |
+| Azure connection string | `(?i)(AccountKey|SharedAccessKey)\s*=\s*[A-Za-z0-9+/=]+` | `<key_name>=[REDACTED]` |
+
+### Third-Party Services
+| Pattern | Regex Hint | Replacement |
+|---------|-----------|-------------|
+| Slack webhook URL | `https://hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]+` | `[REDACTED_SLACK_WEBHOOK]` |
+| Discord webhook URL | `https://discord(app)?\.com/api/webhooks/\d+/[A-Za-z0-9_-]+` | `[REDACTED_DISCORD_WEBHOOK]` |
+| npm registry token | `//registry\.npmjs\.org/:_authToken=\S+` | `//registry.npmjs.org/:_authToken=[REDACTED]` |
+| PyPI token | `pypi-[A-Za-z0-9_-]{50,}` | `[REDACTED_PYPI_TOKEN]` |
+
+### Interactive Prompts & Internal
+| Pattern | Regex Hint | Replacement |
+|---------|-----------|-------------|
+| SSH passphrase prompt | `Enter passphrase for key` | `Enter passphrase for key [REDACTED]` |
+| SSH host key | `ECDSA key fingerprint is SHA256:` | Keep (not sensitive — public info) |
+
+### Custom Sanitisation Patterns
+
+> Teams can extend this section with organisation-specific patterns without modifying the base patterns above.
+
+| Pattern | Regex Hint | Replacement |
+|---------|-----------|-------------|
+| *Internal hostnames* | `(?i)[a-z0-9-]+\.(internal|corp|local)\.[a-z]+` | `[REDACTED_INTERNAL_HOST]` |
+| *Add your patterns here* | — | — |
 
 ---
 

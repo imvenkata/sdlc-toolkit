@@ -1,0 +1,54 @@
+{
+  "$schema": "https://github.com/github/copilot-hooks-schema/v1",
+  "name": "Pipeline Fixer — Session Audit",
+  "description": "Logs session lifecycle events for compliance and incident response. Captures start, tool usage, and completion with structured metadata.",
+  "version": "1.0.0",
+  "events": ["sessionStart", "sessionEnd", "preToolUse"],
+  "agents": ["pipeline-fixer", "mr-reviewer"],
+  "rules": [
+    {
+      "id": "log-session-start",
+      "description": "Log when a pipeline-fixer or mr-reviewer session begins.",
+      "event": "sessionStart",
+      "severity": "info",
+      "action": "log",
+      "fields": ["agent_name", "user", "timestamp", "mode", "project_id", "pipeline_id"]
+    },
+    {
+      "id": "log-session-end",
+      "description": "Log when a session completes with result summary.",
+      "event": "sessionEnd",
+      "severity": "info",
+      "action": "log",
+      "fields": ["agent_name", "user", "timestamp", "result", "iterations", "total_confidence", "files_modified", "duration_seconds"]
+    },
+    {
+      "id": "log-destructive-tool-use",
+      "description": "Log all uses of destructive MCP tools for audit trail.",
+      "event": "preToolUse",
+      "severity": "info",
+      "tools": [
+        "create_or_update_file",
+        "push_files",
+        "create_branch",
+        "create_pipeline",
+        "retry_pipeline_job",
+        "retry_pipeline",
+        "create_merge_request",
+        "create_merge_request_thread",
+        "create_note",
+        "merge_merge_request"
+      ],
+      "action": "log",
+      "fields": ["tool_name", "agent_name", "user", "timestamp", "project_id", "arguments_summary"]
+    }
+  ],
+  "log_destination": {
+    "type": "audit_stream",
+    "fallback": "console"
+  },
+  "metadata": {
+    "compliance": ["SOC2", "internal-audit"],
+    "version": "1.0.0"
+  }
+}

@@ -1,6 +1,8 @@
 ---
 name: "Release Notes"
 description: "Generates structured, categorized release notes from GitLab milestone data. Pulls all merged MRs and closed issues, categorizes by labels, and produces publication-ready notes with attribution."
+version: "3.1.0"
+model: "gpt-4o-mini"
 tools:
   - "gitlab/*"
 ---

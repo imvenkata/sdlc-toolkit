@@ -1,6 +1,8 @@
 ---
 name: "Impact Analyzer"
 description: "Maps the blast radius of merge requests by analyzing file dependencies, downstream consumers, and conflicts with open MRs via GitLab MCP code search and repository tools."
+version: "3.1.0"
+model: "claude-sonnet-4"
 tools:
   - "gitlab/*"
 ---

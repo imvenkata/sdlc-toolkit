@@ -1,0 +1,66 @@
+{
+  "$schema": "https://github.com/github/copilot-hooks-schema/v1",
+  "name": "Pipeline Fixer — Prompt Guard",
+  "description": "Scans user prompts for privilege escalation, prompt injection, and overly broad scope before agent execution.",
+  "version": "1.0.0",
+  "event": "userPromptSubmitted",
+  "agents": ["pipeline-fixer"],
+  "rules": [
+    {
+      "id": "detect-privilege-escalation",
+      "description": "Block prompts containing privilege escalation or dangerous system commands.",
+      "severity": "error",
+      "patterns": [
+        "sudo\\s+",
+        "chmod\\s+7[0-7]{2}",
+        "rm\\s+-rf\\s+/",
+        "--force\\s+push",
+        "git\\s+push\\s+--force",
+        "DROP\\s+TABLE",
+        "TRUNCATE\\s+TABLE",
+        "\\|\\s*sh\\b",
+        "\\|\\s*bash\\b",
+        "eval\\s*\\(",
+        "curl\\s+.*\\|\\s*bash"
+      ],
+      "action": "block",
+      "message": "🛑 Prompt blocked: detected a potentially dangerous command pattern ('{matched_pattern}'). Pipeline Fixer is designed for CI/CD diagnosis and fix — it should not execute system administration commands."
+    },
+    {
+      "id": "detect-prompt-injection",
+      "description": "Detect attempts to override agent instructions.",
+      "severity": "error",
+      "patterns": [
+        "ignore\\s+(all\\s+)?previous\\s+instructions",
+        "ignore\\s+your\\s+(system\\s+)?prompt",
+        "you\\s+are\\s+now\\s+a",
+        "pretend\\s+you\\s+are",
+        "act\\s+as\\s+if\\s+you\\s+have\\s+no\\s+restrictions",
+        "disregard\\s+(all\\s+)?safety",
+        "bypass\\s+(all\\s+)?guardrails",
+        "override\\s+your\\s+instructions",
+        "reveal\\s+your\\s+(system\\s+)?prompt"
+      ],
+      "action": "block",
+      "message": "🛑 Prompt blocked: detected a prompt injection attempt. This input has been logged for security review."
+    },
+    {
+      "id": "warn-broad-scope",
+      "description": "Warn when the prompt targets multiple projects or all pipelines.",
+      "severity": "warning",
+      "patterns": [
+        "all\\s+projects",
+        "every\\s+pipeline",
+        "all\\s+pipelines",
+        "fix\\s+everything",
+        "all\\s+failing"
+      ],
+      "action": "warn",
+      "message": "⚠️ Broad scope detected. Pipeline Fixer operates on one pipeline at a time. Please specify a single project and pipeline ID."
+    }
+  ],
+  "metadata": {
+    "agent": "pipeline-fixer",
+    "version": "3.0.0"
+  }
+}
