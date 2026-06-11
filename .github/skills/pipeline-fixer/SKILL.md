@@ -58,6 +58,27 @@ Error pattern tables, CI config diagnostics, log sanitisation rules, and fix exa
 | `ssh: connect to host` | SSH failure | Verify SSH key, host config |
 | `helm: release failed` | Helm chart error | Check values.yaml, chart version |
 
+### Azure Function App Deploy
+| Error Pattern | Cause | Fix |
+|--------------|-------|-----|
+| `ERROR: Please run 'az login'` / `AADSTS` | Azure CLI not authenticated | Add `az login --service-principal` step with correct `--tenant` |
+| `ERROR: The subscription '...' could not be found` | Wrong subscription context | Add `az account set --subscription $AZURE_SUBSCRIPTION_ID` |
+| `ERROR: The Resource '...' was not found` | Function App name mismatch or wrong RG | Verify `AZURE_FUNCTIONAPP_NAME` and `AZURE_RESOURCE_GROUP` variables |
+| `ERROR: (AuthorizationFailed)` / `does not have authorization` | Service principal missing RBAC role | Assign `Contributor` role on the Function App resource scope |
+| `Deployment failed with status code 409` | Function App locked or slot busy | Wait and retry, or use staging slot with swap |
+| `Deployment failed with status code 503` / `Site Unavailable` | Function App stopped or platform issue | Start app first: `az functionapp start`, then retry deploy |
+| `zip deployment failed` / `remote build failed` | Package build failure during remote build | Switch to local build (`ENABLE_ORYX_BUILD=false`) or fix build deps |
+| `SCM_DO_BUILD_DURING_DEPLOYMENT` error | Remote build conflict | Set `SCM_DO_BUILD_DURING_DEPLOYMENT=true` for Node.js, `false` for pre-built |
+| `func azure functionapp publish: error` | Azure Functions Core Tools failure | Verify tools version matches runtime: `func --version` |
+| `Missing value for AzureWebJobsStorage` | Storage account not configured | Set `AzureWebJobsStorage` connection string in app settings |
+| `Timeout waiting for SCM site` | Kudu SCM site unresponsive | Retry — transient. If persistent, restart SCM: `az webapp restart` |
+| `WEBSITE_RUN_FROM_PACKAGE=1` + file not found | Deployment package not uploaded | Verify blob URL in `WEBSITE_RUN_FROM_PACKAGE` or use zip deploy |
+| `Could not find a part of the path '/home/site/wwwroot/host.json'` | Function App package corrupt | Redeploy with clean package: `--build remote` |
+| `System.Private.CoreLib: Access to the path is denied` | File lock during deployment | Stop the function app before deploy or use `WEBSITE_ADD_SITENAME_BINDINGS_IN_APPHOST_CONFIG=1` |
+| `Failed to start language worker` / `Worker was unable to load` | Runtime version mismatch | Set `FUNCTIONS_EXTENSION_VERSION=~4` and correct `linuxFxVersion` |
+| `az functionapp config appsettings set: error` | App settings update failure | Check JSON format: `--settings "KEY=VALUE"` not `--settings KEY VALUE` |
+| `Health check failed for slot` / `Swap failed` | Staging slot health check failing | Fix health endpoint or adjust `healthcheckpath` in config |
+
 ### Infrastructure (Retry-able)
 | Error Pattern | Cause | Fix |
 |--------------|-------|-----|
@@ -118,8 +139,10 @@ Before processing job logs, the log-analyser sub-agent MUST redact these pattern
 |---------|-----------|-------------|
 | GCP service account key | `"private_key"\s*:\s*"-----BEGIN` (in JSON) | `"private_key": "[REDACTED_GCP_KEY]"` |
 | GCP OAuth token | `ya29\.[A-Za-z0-9_-]{20,}` | `[REDACTED_GCP_TOKEN]` |
-| Azure SAS token | `\?sv=.*&sig=[A-Za-z0-9%+/=]+` | `?sv=...&sig=[REDACTED_SAS]` |
+| Azure SAS token | `\?sv=.*\&sig=[A-Za-z0-9%+/=]+` | `?sv=...\&sig=[REDACTED_SAS]` |
 | Azure connection string | `(?i)(AccountKey|SharedAccessKey)\s*=\s*[A-Za-z0-9+/=]+` | `<key_name>=[REDACTED]` |
+| Azure SP client secret | `(?i)(client_secret|AZURE_CLIENT_SECRET)\s*[:=]\s*\S+` | `client_secret=[REDACTED]` |
+| Azure tenant/subscription IDs in errors | (Keep — not sensitive, needed for diagnosis) | Do not redact |
 
 ### Third-Party Services
 | Pattern | Regex Hint | Replacement |
@@ -268,6 +291,109 @@ build:
     - npm run build
 ```
 
+### Azure Function App — Service Principal login
+```yaml
+.azure-login: &azure-login
+  before_script:
+    - az login --service-principal
+        --username $AZURE_CLIENT_ID
+        --password $AZURE_CLIENT_SECRET
+        --tenant $AZURE_TENANT_ID
+    - az account set --subscription $AZURE_SUBSCRIPTION_ID
+```
+**Common issue**: Missing `--tenant` or wrong subscription. Always set subscription explicitly.
+
+### Azure Function App — Zip deploy (Node.js)
+```yaml
+deploy-function:
+  stage: deploy
+  image: mcr.microsoft.com/azure-cli:latest
+  <<: *azure-login
+  script:
+    - cd $CI_PROJECT_DIR
+    - zip -r function-app.zip . -x '.git/*' 'node_modules/*' '.gitlab-ci.yml'
+    - az functionapp deployment source config-zip
+        --resource-group $AZURE_RESOURCE_GROUP
+        --name $AZURE_FUNCTIONAPP_NAME
+        --src function-app.zip
+        --build-remote true
+  environment:
+    name: dev
+  only:
+    - develop
+```
+**Common issues**: Missing `--build-remote true` for Node.js (causes missing `node_modules`). Wrong zip contents (including `.git/` inflates package).
+
+### Azure Function App — Publish with Core Tools
+```yaml
+deploy-function:
+  stage: deploy
+  image: mcr.microsoft.com/azure-functions/node:4-node20
+  <<: *azure-login
+  script:
+    - npm ci --production
+    - func azure functionapp publish $AZURE_FUNCTIONAPP_NAME
+        --javascript
+        --no-build
+  environment:
+    name: dev
+```
+**Common issues**: Mismatch between `--javascript`/`--typescript` flag and actual runtime. Using `--no-build` without running `npm ci` first.
+
+### Azure Function App — Slot deploy with swap
+```yaml
+deploy-staging:
+  stage: deploy
+  image: mcr.microsoft.com/azure-cli:latest
+  <<: *azure-login
+  script:
+    - az functionapp deployment source config-zip
+        --resource-group $AZURE_RESOURCE_GROUP
+        --name $AZURE_FUNCTIONAPP_NAME
+        --slot staging
+        --src function-app.zip
+        --build-remote true
+    - az functionapp start
+        --resource-group $AZURE_RESOURCE_GROUP
+        --name $AZURE_FUNCTIONAPP_NAME
+        --slot staging
+    # Health check before swap
+    - |
+      HEALTH=$(curl -s -o /dev/null -w '%{http_code}' https://$AZURE_FUNCTIONAPP_NAME-staging.azurewebsites.net/api/health)
+      if [ "$HEALTH" != "200" ]; then
+        echo "Health check failed with HTTP $HEALTH"
+        exit 1
+      fi
+    - az functionapp deployment slot swap
+        --resource-group $AZURE_RESOURCE_GROUP
+        --name $AZURE_FUNCTIONAPP_NAME
+        --slot staging
+        --target-slot production
+  environment:
+    name: production
+  when: manual
+```
+**Common issues**: Swap fails with 409 if slot is stopped. Health check path not configured. Missing `az functionapp start` before health check.
+
+### Azure Function App — App settings from CI variables
+```yaml
+configure-app:
+  stage: deploy
+  image: mcr.microsoft.com/azure-cli:latest
+  <<: *azure-login
+  script:
+    - az functionapp config appsettings set
+        --resource-group $AZURE_RESOURCE_GROUP
+        --name $AZURE_FUNCTIONAPP_NAME
+        --settings
+          "APPINSIGHTS_INSTRUMENTATIONKEY=$APPINSIGHTS_KEY"
+          "AzureWebJobsStorage=$STORAGE_CONNECTION_STRING"
+          "FUNCTIONS_EXTENSION_VERSION=~4"
+          "WEBSITE_NODE_DEFAULT_VERSION=~20"
+          "CUSTOM_SETTING=$CUSTOM_VALUE"
+```
+**Common issue**: Using `KEY VALUE` format instead of `"KEY=VALUE"`. Missing quotes around values with special characters.
+
 ---
 
 ## Commit Message Convention
@@ -280,4 +406,4 @@ Job: <job_name> (stage: <stage>)
 Error: <one-line error summary>
 ```
 
-Scopes: `ci`, `build`, `test`, `deps`, `docker`, `deploy`, `scan`
+Scopes: `ci`, `build`, `test`, `deps`, `docker`, `deploy`, `azure`, `scan`

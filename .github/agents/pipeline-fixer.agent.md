@@ -10,7 +10,7 @@ agents:
   - "log-analyser"
   - "fix-generator"
 handoffs:
-  - agent: "mr-reviewer"
+  - agent: "code-review-pull"
     condition: "Fix branch created and pipeline passes"
   - agent: "root-cause"
     condition: "3 iterations exhausted without fix"
@@ -306,10 +306,10 @@ If a *different* stage now fails (e.g., fixed build → test now runs and fails)
 
 ## Cross-Agent Handoff
 
-### → MR Reviewer
+### → Code Review Pull
 
 When Phase 3 creates a **fix branch** (`fix/ci-<pipeline_id>`), suggest:
-> "Fix branch `fix/ci-<pipeline_id>` created. After the pipeline passes, run `@mr-reviewer Quick review MR !<iid> in project <id>` to review the fix before merging."
+> "Fix branch `fix/ci-<pipeline_id>` created. After the pipeline passes, run `@code-review-pull Quick review MR !<iid> in project <id>` to review the fix before merging."
 
 ### → Root Cause Agent
 
@@ -498,4 +498,3 @@ create_pipeline(project_id="<project>", ref="<branch>")
 - `ref` must be the fix branch, not the original failing branch
 - Returns the new `pipeline_id` immediately — store it before proceeding to Phase 5 verify
 - If the branch has no CI config changes yet, this triggers a pipeline on the old config — always push the fix first
-

@@ -329,6 +329,7 @@ graph TD
     LOG --> SCAN["Scan Error<br/>Scanner crash, findings,<br/>scan timeout"]
     LOG --> PUB["Publish Error<br/>Registry auth, tag error,<br/>disk full"]
     LOG --> DEPLOY["Deploy Error<br/>K8s error, health check,<br/>SSH failure"]
+    LOG --> AZURE["Azure Function App<br/>az login, RBAC, zip deploy,<br/>slot swap, runtime mismatch"]
     LOG --> INFRA["Infrastructure<br/>OOM, network timeout,<br/>DNS failure, runner crash"]
 
     CI -->|"No"| FIX_CODE["Fix: Code/Config Change"]
@@ -337,6 +338,8 @@ graph TD
     SCAN -->|"Depends"| FIX_CODE
     PUB -->|"Maybe"| FIX_CODE
     DEPLOY -->|"Maybe"| FIX_CODE
+    AZURE -->|"Most"| FIX_CODE
+    AZURE -->|"RBAC"| MANUAL["Action: Manual<br/>(Azure portal/CLI)"]
 
     FLAKY -->|"Yes"| RETRY["Action: Retry Job"]
     INFRA -->|"Yes"| RETRY
@@ -346,6 +349,8 @@ graph TD
 
     style INFRA fill:#FFB74D,stroke:#E65100
     style FLAKY fill:#FFB74D,stroke:#E65100
+    style AZURE fill:#0078D4,stroke:#005A9E,color:#fff
+    style MANUAL fill:#9E9E9E,stroke:#616161,color:#fff
     style FIX_CODE fill:#64B5F6,stroke:#1565C0
     style RETRY fill:#81C784,stroke:#388E3C
 ```
@@ -360,7 +365,7 @@ The Pipeline Fixer connects to other agents in the toolkit:
 graph LR
     PF["🔧 Pipeline Fixer"]
     
-    MR["📋 MR Reviewer<br/>@mr-reviewer"]
+    MR["Code Review Pull<br/>@code-review-pull"]
     RC["🔍 Root Cause<br/>@root-cause"]
 
     PF -->|"Fix branch created<br/>+ pipeline passes"| MR
@@ -372,8 +377,173 @@ graph LR
 ```
 
 **Handoff triggers:**
-- **→ MR Reviewer**: When the fixer creates a `fix/ci-*` branch and the pipeline passes, it suggests: _"Run `@mr-reviewer Quick review MR !<iid>` to review the fix before merging."_
+- **→ Code Review Pull**: When the fixer creates a `fix/ci-*` branch and the pipeline passes, it suggests: _"Run `@code-review-pull Quick review MR !<iid>` to review the fix before merging."_
 - **→ Root Cause**: When 3 iterations fail to fix the pipeline, it suggests: _"Run `@root-cause Analyse pipeline #<id>` for a deeper investigation."_
+
+---
+
+## Azure Function App — Usage Guide
+
+The Pipeline Fixer natively supports Azure Function App deployment pipelines. No agent changes needed — the error patterns and YAML fix templates are in SKILL.md.
+
+### Required CI/CD Variables
+
+Before using the agent with Azure pipelines, ensure these variables are set in GitLab CI/CD Settings → Variables:
+
+| Variable | Purpose | Masked? |
+|----------|---------|---------|
+| `AZURE_CLIENT_ID` | Service principal application ID | No |
+| `AZURE_CLIENT_SECRET` | Service principal secret | ✅ Yes |
+| `AZURE_TENANT_ID` | Azure AD tenant ID | No |
+| `AZURE_SUBSCRIPTION_ID` | Target subscription | No |
+| `AZURE_RESOURCE_GROUP` | Resource group name | No |
+| `AZURE_FUNCTIONAPP_NAME` | Function App name | No |
+
+### Example Invocations
+
+**Scenario 1 — `az login` fails (wrong tenant or expired SP)**
+```
+@pipeline-fixer Fix pipeline #201 in project my-group/my-function-app
+```
+
+The agent will:
+1. Fetch the failed deploy job log
+2. Match `ERROR: Please run 'az login'` or `AADSTS` pattern
+3. Diagnose as **Azure Function App Deploy** category
+4. Propose a fix adding `--tenant $AZURE_TENANT_ID` to the login command
+5. Confidence: **4/5** (strong pattern match)
+
+**Scenario 2 — Subscription not found**
+```
+@pipeline-fixer Diagnose pipeline #202 in project my-group/my-function-app
+```
+
+The agent will:
+1. Match `The subscription '...' could not be found`
+2. Diagnose: Missing `az account set --subscription` step
+3. Report the fix without pushing (Diagnose mode)
+
+**Scenario 3 — Zip deploy remote build fails**
+```
+@pipeline-fixer Auto-fix pipeline #203 in project my-group/my-function-app
+```
+
+The agent will:
+1. Match `zip deployment failed` or `remote build failed`
+2. Diagnose: Missing `--build-remote true` or wrong zip contents
+3. Generate fix adding the correct flags to `az functionapp deployment source config-zip`
+4. Push automatically (Auto-fix, confidence ≥ 4)
+5. Poll for new pipeline result
+
+**Scenario 4 — RBAC permissions insufficient**
+```
+@pipeline-fixer Fix the deploy stage in pipeline #204 in project my-group/my-function-app
+```
+
+The agent will:
+1. Match `(AuthorizationFailed)` or `does not have authorization`
+2. Diagnose: Service principal missing `Contributor` role
+3. Confidence: **3/5** (can't fix RBAC from CI config — requires Azure portal/CLI)
+4. Report the manual action needed rather than proposing a code fix
+
+**Scenario 5 — Slot swap health check fails**
+```
+@pipeline-fixer Fix pipeline #205 in project my-group/my-function-app
+```
+
+The agent will:
+1. Match `Health check failed for slot` or `Swap failed`
+2. Diagnose: Staging slot health endpoint returning non-200
+3. Propose fix: Add `az functionapp start` before health check, or fix the health endpoint path
+4. Confidence: **4/5** if the health check script is in CI config
+
+### Azure Error Classification
+
+```mermaid
+graph TD
+    LOG["Deploy Job Log"]
+
+    LOG --> AUTH["Auth Error<br/>az login / AADSTS<br/>subscription not found"]
+    LOG --> RBAC["Permission Error<br/>AuthorizationFailed<br/>does not have authorization"]
+    LOG --> DEPLOY["Deploy Error<br/>zip deploy failed<br/>remote build failed<br/>SCM timeout"]
+    LOG --> RUNTIME["Runtime Error<br/>language worker failed<br/>host.json not found<br/>AzureWebJobsStorage missing"]
+    LOG --> SLOT["Slot Error<br/>health check failed<br/>swap 409 conflict"]
+
+    AUTH --> FIX_CI["Fix: CI Config<br/>Add --tenant, --subscription"]
+    RBAC --> MANUAL["Action: Manual<br/>Assign RBAC role in Azure"]
+    DEPLOY --> FIX_DEPLOY["Fix: Deploy Script<br/>--build-remote, zip contents"]
+    RUNTIME --> FIX_SETTINGS["Fix: App Settings<br/>az functionapp config"]
+    SLOT --> FIX_SLOT["Fix: Slot Config<br/>Start slot, fix health path"]
+
+    FIX_CI --> AUTO["Auto-fixable ✅"]
+    FIX_DEPLOY --> AUTO
+    FIX_SETTINGS --> AUTO
+    FIX_SLOT --> AUTO
+    MANUAL --> NOT_AUTO["Manual action ⚠️<br/>Confidence ≤ 3"]
+
+    style AUTH fill:#FF9800,stroke:#E65100,color:#fff
+    style RBAC fill:#F44336,stroke:#C62828,color:#fff
+    style DEPLOY fill:#FF9800,stroke:#E65100,color:#fff
+    style RUNTIME fill:#FF9800,stroke:#E65100,color:#fff
+    style SLOT fill:#FF9800,stroke:#E65100,color:#fff
+    style AUTO fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style NOT_AUTO fill:#9E9E9E,stroke:#616161,color:#fff
+```
+
+### Typical Azure Function App Pipeline
+
+This is the kind of pipeline structure the agent expects and knows how to fix:
+
+```yaml
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  NODE_VERSION: "20"
+
+build:
+  stage: build
+  image: node:${NODE_VERSION}-alpine
+  script:
+    - npm ci
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+      - node_modules/
+
+test:
+  stage: test
+  image: node:${NODE_VERSION}-alpine
+  needs: ["build"]
+  script:
+    - npm test
+
+deploy-dev:
+  stage: deploy
+  image: mcr.microsoft.com/azure-cli:latest
+  before_script:
+    - az login --service-principal
+        --username $AZURE_CLIENT_ID
+        --password $AZURE_CLIENT_SECRET
+        --tenant $AZURE_TENANT_ID
+    - az account set --subscription $AZURE_SUBSCRIPTION_ID
+  script:
+    - zip -r function-app.zip . -x '.git/*' '.gitlab-ci.yml'
+    - az functionapp deployment source config-zip
+        --resource-group $AZURE_RESOURCE_GROUP
+        --name $AZURE_FUNCTIONAPP_NAME
+        --src function-app.zip
+        --build-remote true
+  environment:
+    name: dev
+  only:
+    - develop
+```
+
+The agent can fix failures in any stage — build (`npm ci` issues), test (missing services), and deploy (Azure-specific errors).
 
 ---
 
@@ -389,6 +559,7 @@ sdlc-toolkit/
 │   ├── skills/
 │   │   └── pipeline-fixer/
 │   │       └── SKILL.md               ← Error patterns + sanitisation rules
+│   │                                     (now includes Azure Function App patterns)
 │   └── hooks/
 │       ├── pre-push-validation.json   ← Block unsafe pushes
 │       ├── prompt-guard.json          ← Block prompt injection
@@ -398,5 +569,6 @@ sdlc-toolkit/
 └── tests/
     └── pipeline-fixer/
         ├── README.md                  ← Validation strategy
+        ├── eval.py                    ← Automated eval harness
         └── fixtures/                  ← Golden-path test scenarios
 ```

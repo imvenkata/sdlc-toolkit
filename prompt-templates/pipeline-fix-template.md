@@ -108,7 +108,7 @@
 | `[sha]` | `[message]` |
 
 ### Next Steps
-- Review the fix: `@mr-reviewer Quick review MR ![iid] in project [id]`
+- Review the fix: `@code-review-pull Quick review MR ![iid] in project [id]`
 ```
 
 ### If Not Fixed ❌

@@ -1,6 +1,6 @@
 # SDLC Toolkit — AI Agents for GitLab × GitHub Copilot
 
-A suite of 11 AI-powered agents (6 user-facing + 5 specialist sub-agents) that integrate GitLab (via MCP) with GitHub Copilot to improve developer productivity, code quality, and decision-making across the software development lifecycle.
+A suite of 11 AI-powered agents (7 user-facing + 4 specialist sub-agents) that integrate GitLab (via MCP) with GitHub Copilot to improve developer productivity, code quality, and decision-making across the software development lifecycle.
 
 ## Agents
 
@@ -8,7 +8,8 @@ A suite of 11 AI-powered agents (6 user-facing + 5 specialist sub-agents) that i
 
 | Agent | Command | Purpose |
 |-------|---------|---------| 
-| **MR Reviewer** | `@mr-reviewer` | Reviews MRs against linked requirements with 5-dimension scoring |
+| **Code Review** | `@code-review` | Reviews local staged, unstaged, or branch diffs without GitLab access |
+| **Code Review Pull** | `@code-review-pull` | Reviews GitLab MRs with token-efficient MCP context gathering |
 | **Pipeline Fixer** | `@pipeline-fixer` | Iteratively diagnoses and fixes CI/CD pipeline failures across all stages |
 | **Root Cause Analyzer** | `@root-cause` | Investigates pipeline failures with evidence-based hypothesis ranking |
 | **Sprint Intelligence** | `@sprint-intel` | Generates data-driven sprint health reports from milestone data |
@@ -21,9 +22,8 @@ A suite of 11 AI-powered agents (6 user-facing + 5 specialist sub-agents) that i
 |-----------|-------------|---------|-------|
 | **Log Analyser** | Pipeline Fixer | Log sanitisation, error extraction, failure classification | `gpt-5-mini` |
 | **Fix Generator** | Pipeline Fixer | Minimal fix generation with confidence scoring | `claude-sonnet-4.6` |
-| **Security Scanner** | MR Reviewer | Security pattern detection in file diffs | `gpt-5-mini` |
-| **Requirements Tracer** | MR Reviewer | Issue acceptance criteria → code traceability | `claude-sonnet-4.6` |
-| **Code Quality Reviewer** | MR Reviewer | Quality, consistency, and completeness analysis | `claude-sonnet-4` |
+| **Review Security** | Code Review / Code Review Pull | Risk-gated security, privacy, auth, and breaking-change review | inherited |
+| **Review Requirements** | Code Review / Code Review Pull | Risk-gated acceptance criteria and requirement coverage review | inherited |
 
 ## Architecture
 
@@ -40,24 +40,27 @@ sdlc-toolkit/
 │   │   ├── pipeline-fixer.agent.md      # ── Orchestrator ──────────────────────┐
 │   │   ├── log-analyser.agent.md        #    └─ Sub-agent (log parsing)        │
 │   │   ├── fix-generator.agent.md       #    └─ Sub-agent (fix generation)     │
-│   │   ├── mr-reviewer.agent.md         # ── Orchestrator ──────────────────────┤
-│   │   ├── security-scanner.agent.md    #    └─ Sub-agent (security)           │
-│   │   ├── requirements-tracer.agent.md #    └─ Sub-agent (requirements)       │
-│   │   ├── code-quality-reviewer.agent.md #  └─ Sub-agent (quality)            │
+│   │   ├── code-review.agent.md         # ── Local review orchestrator ─────────┤
+│   │   ├── code-review-pull.agent.md    # ── GitLab MR review orchestrator ─────┤
+│   │   ├── review-security.agent.md     #    └─ Risk-gated sub-agent           │
+│   │   ├── review-requirements.agent.md #    └─ Risk-gated sub-agent           │
 │   │   ├── root-cause.agent.md          # ── Standalone ────────────────────────┤
 │   │   ├── sprint-intel.agent.md        # ── Standalone ────────────────────────┤
 │   │   ├── impact-analysis.agent.md     # ── Standalone ────────────────────────┤
 │   │   └── release-notes.agent.md       # ── Standalone ────────────────────────┘
+│   ├── prompts/                         # Reusable Copilot Chat shortcuts
+│   │   ├── code-review.prompt.md
+│   │   └── code-review-pull.prompt.md
 │   └── skills/                          # Reusable skill modules
 │       ├── gitlab-data-fetcher/
-│       ├── mr-review-workflow/
+│       ├── code-review/
+│       ├── gitlab-review/
 │       ├── root-cause-analysis/
 │       ├── sprint-analysis/
 │       ├── impact-analysis/
 │       ├── release-notes-gen/
 │       └── pipeline-fixer/
 ├── prompt-templates/                    # Structured output templates
-│   ├── mr-review-rubric.md
 │   ├── rca-evidence-template.md
 │   ├── sprint-report-template.md
 │   ├── impact-report-template.md
@@ -74,7 +77,8 @@ sdlc-toolkit/
 ```mermaid
 graph TD
     U["Developer"] --> PF["@pipeline-fixer"]
-    U --> MR["@mr-reviewer"]
+    U --> CR["@code-review"]
+    U --> CPR["@code-review-pull"]
     U --> RC["@root-cause"]
     U --> SI["@sprint-intel"]
     U --> IA["@impact-analysis"]
@@ -85,22 +89,22 @@ graph TD
     LA -->|"diagnosis"| PF
     FG -->|"fix + confidence"| PF
 
-    MR -->|"diffs"| SS["security-scanner<br/>(gpt-5-mini)"]
-    MR -->|"issues + diffs"| RT["requirements-tracer<br/>(claude-sonnet-4.6)"]
-    MR -->|"diffs + language"| CQ["code-quality-reviewer<br/>(claude-sonnet-4)"]
-    SS -->|"findings"| MR
-    RT -->|"traceability"| MR
-    CQ -->|"quality report"| MR
+    CR -->|"risk-gated diffs"| RS["review-security"]
+    CPR -->|"risk-gated diffs"| RS
+    CPR -->|"criteria + diffs"| RR["review-requirements"]
+    RS -->|"findings only"| CR
+    RS -->|"findings only"| CPR
+    RR -->|"requirement gaps"| CPR
 
-    PF -.->|"handoff"| MR
+    PF -.->|"handoff"| CPR
     PF -.->|"escalation"| RC
 ```
 
 ### Design Principles
 
 - **Zero infrastructure** — everything runs locally via Copilot Chat + MCP
-- **Deterministic outputs** — scoring rubrics, formulas, and templates ensure consistent results
-- **Evidence-based** — every claim traces to a specific GitLab MCP tool response
+- **Deterministic outputs** — shared review schemas and templates keep findings consistent
+- **Evidence-based** — every claim traces to a diff, source line, CI signal, or GitLab MCP response
 - **Iterative** — the Pipeline Fixer loops (diagnose → fix → push → verify) up to 3 times
 - **Safety first** — write operations require confirmation; hooks block unsafe pushes
 - **Cost-aware** — token usage estimated per iteration for budget visibility
@@ -131,14 +135,14 @@ code .
 ### 3. Verify MCP Server
 
 The `.vscode/mcp.json` is pre-configured with two server entries:
-- `gitlab` — read-write (for pipeline-fixer, mr-reviewer)
+- `gitlab-mcp` — read-write (for pipeline-fixer, code-review-pull)
 - `gitlab-readonly` — read-only (for root-cause, sprint-intel, impact-analysis, release-notes)
 
 VS Code will start the GitLab MCP server automatically when you open Copilot Chat.
 
 ### 4. Verify Agents
 
-Open Copilot Chat → click the agent picker → you should see all 6 user-facing agents listed. Sub-agents are not shown in the picker.
+Open Copilot Chat → click the agent picker → you should see all 7 user-facing agents listed. Sub-agents are not shown in the picker.
 
 ## Usage Examples
 
@@ -151,11 +155,19 @@ Open Copilot Chat → click the agent picker → you should see all 6 user-facin
 @pipeline-fixer help
 ```
 
-### MR Review
+### Local Code Review
 ```
-@mr-reviewer Review MR !42 in project my-group/my-project
-@mr-reviewer Quick review MR !42 in project my-group/my-project
-@mr-reviewer Deep review MR !42 in project my-group/my-project
+@code-review Quick review current changes
+@code-review Review staged changes
+@code-review Deep review current branch
+```
+
+### GitLab MR Review
+```
+@code-review-pull Review MR !42 in project my-group/my-project
+@code-review-pull Quick review MR !42 in project my-group/my-project
+@code-review-pull Deep review MR !42 in project my-group/my-project
+@code-review-pull Review MR on branch feature/auth in project my-group/my-project
 ```
 
 ### Root Cause Analysis
@@ -199,8 +211,11 @@ Edit the categorization rules in:
 ### Adding New Risk Patterns
 Edit `.github/skills/impact-analysis/SKILL.md` to add file path patterns and risk classifications.
 
-### Adjusting Scoring
-Edit `prompt-templates/mr-review-rubric.md` to change score thresholds or add dimensions.
+### Review Policy
+Edit `.github/skills/code-review/SKILL.md` to adjust severity definitions, token budgets, skip rules, final output format, and verifier rules.
+
+### GitLab Review Workflow
+Edit `.github/skills/gitlab-review/SKILL.md` to adjust GitLab MCP batching, excluded file patterns, linked issue parsing, and write-back behavior.
 
 ### Pipeline Fixer Patterns
 Edit `.github/skills/pipeline-fixer/SKILL.md` to add stage-specific error patterns, fix strategies, and custom log sanitisation patterns for your CI/CD setup.

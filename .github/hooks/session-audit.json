@@ -4,11 +4,11 @@
   "description": "Logs session lifecycle events for compliance and incident response. Captures start, tool usage, and completion with structured metadata.",
   "version": "1.0.0",
   "events": ["sessionStart", "sessionEnd", "preToolUse"],
-  "agents": ["pipeline-fixer", "mr-reviewer"],
+  "agents": ["pipeline-fixer", "code-review", "code-review-pull"],
   "rules": [
     {
       "id": "log-session-start",
-      "description": "Log when a pipeline-fixer or mr-reviewer session begins.",
+      "description": "Log when a pipeline-fixer, code-review, or code-review-pull session begins.",
       "event": "sessionStart",
       "severity": "info",
       "action": "log",
