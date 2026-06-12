@@ -10,6 +10,7 @@ REVIEW_FILES=(
   ".github/agents/review-requirements.agent.md"
   ".github/skills/code-review/SKILL.md"
   ".github/skills/gitlab-review/SKILL.md"
+  ".github/skills/review-state/SKILL.md"
   ".github/prompts/code-review.prompt.md"
   ".github/prompts/code-review-pull.prompt.md"
 )

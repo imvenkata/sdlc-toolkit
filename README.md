@@ -9,7 +9,7 @@ A suite of 11 AI-powered agents (7 user-facing + 4 specialist sub-agents) that i
 | Agent | Command | Purpose |
 |-------|---------|---------| 
 | **Code Review** | `@code-review` | Reviews local staged, unstaged, or branch diffs without GitLab access |
-| **Code Review Pull** | `@code-review-pull` | Reviews GitLab MRs with token-efficient MCP context gathering |
+| **Code Review Pull** | `@code-review-pull` | Reviews GitLab MRs with token-efficient incremental MCP context gathering |
 | **Pipeline Fixer** | `@pipeline-fixer` | Iteratively diagnoses and fixes CI/CD pipeline failures across all stages |
 | **Root Cause Analyzer** | `@root-cause` | Investigates pipeline failures with evidence-based hypothesis ranking |
 | **Sprint Intelligence** | `@sprint-intel` | Generates data-driven sprint health reports from milestone data |
@@ -55,6 +55,7 @@ sdlc-toolkit/
 │       ├── gitlab-data-fetcher/
 │       ├── code-review/
 │       ├── gitlab-review/
+│       ├── review-state/
 │       ├── root-cause-analysis/
 │       ├── sprint-analysis/
 │       ├── impact-analysis/
@@ -216,6 +217,9 @@ Edit `.github/skills/code-review/SKILL.md` to adjust severity definitions, token
 
 ### GitLab Review Workflow
 Edit `.github/skills/gitlab-review/SKILL.md` to adjust GitLab MCP batching, excluded file patterns, linked issue parsing, and write-back behavior.
+
+### Incremental Review State
+Edit `.github/skills/review-state/SKILL.md` to adjust reviewed-SHA memory, duplicate suppression, state markers, and follow-up ledger behavior.
 
 ### Pipeline Fixer Patterns
 Edit `.github/skills/pipeline-fixer/SKILL.md` to add stage-specific error patterns, fix strategies, and custom log sanitisation patterns for your CI/CD setup.

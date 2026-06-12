@@ -10,10 +10,13 @@ The installer copies only the review-pack files:
 - `.github/agents/review-requirements.agent.md`
 - `.github/skills/code-review/SKILL.md`
 - `.github/skills/gitlab-review/SKILL.md`
+- `.github/skills/review-state/SKILL.md`
 - `.github/prompts/code-review.prompt.md`
 - `.github/prompts/code-review-pull.prompt.md`
 
 It does not install or overwrite `.github/copilot-instructions.md`.
+
+The `review-state` skill enables incremental MR reviews by storing compact `ai-review-state:v1` metadata in confirmed MR summary/state comments.
 
 ## Install From GitLab
 

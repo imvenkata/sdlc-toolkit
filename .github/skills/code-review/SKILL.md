@@ -79,12 +79,15 @@ Use this for chat output and MR summary comments. Start with exactly one marker.
   `<!-- ai-review:code-review:v1 project="local" head="<sha|local>" mode="<quick|standard|deep>" -->`
 - GitLab MR marker:
   `<!-- ai-review:code-review-pull:v1 project="<project>" mr="!<iid>" head="<sha>" mode="<quick|standard|deep>" -->`
+- GitLab MR state marker:
+  `<!-- ai-review-state:v1 ... -->`
 
 Finding IDs:
 
 - Number findings by severity in report order: `P1-1`, `P1-2`, `P2-1`, `P2-2`, `NIT-1`.
 - Use the ID in the heading or nit bullet so follow-up commands can reference it.
 - For GitLab MR reviews, include an action ledger. The ledger is the compact state used for same-session follow-up, so keep it accurate.
+- For GitLab MR reviews, include the hidden `ai-review-state:v1` marker after the summary footer. It enables future incremental reviews.
 - For local reviews, omit the action ledger unless the user explicitly wants a tracking table.
 
 ```md
@@ -95,6 +98,7 @@ Finding IDs:
 Verdict: <Pass | Needs Work | Blocked>
 Confidence: <High | Medium | Low>
 Scope: <N> files changed, <M> reviewed, <K> skipped
+Incremental: <not used | reviewed changes from `<previous_sha>` to `<current_sha>`>
 
 ## Findings
 
@@ -125,15 +129,20 @@ Confidence: <High|Medium>
 ## Verification
 - CI: <status or not checked>
 - Tests: <available signal or not checked>
+- Previous AI review: <found at `<sha>` | not found | unchanged at `<sha>`>
+- Duplicate suppression: <N> previous findings carried forward, <M> duplicates suppressed
 - Assumptions: <only if needed>
 
 ## Follow-Up
 Reply with: `post summary`, `draft P2-1`, `draft all P1/P2`, `post P1-1 inline`, `comment: ...`, `reply to thread <id>: ...`, `resolve thread <id>`, `accept P2-1`, `approve`, `unapprove`, or `no write-back`.
 
-<!-- ai-review-summary: {"p1":0,"p2":1,"nits":2,"reviewed_files":8,"skipped_files":4,"mode":"standard","followup_ready":true} -->
+<!-- ai-review-summary: {"p1":0,"p2":1,"nits":2,"reviewed_files":8,"skipped_files":4,"mode":"standard","followup_ready":true,"state":"included"} -->
+<!-- ai-review-state:v1
+{"project":"<project>","mr":"!<iid>","reviewed_head":"<sha>","target_branch":"<branch>","mode":"standard","incremental":false,"reviewed_files":["<path>"],"skipped_files":[{"path":"<path>","reason":"<reason>"}],"findings":[{"id":"P2-1","severity":"P2","fingerprint":"<hash>","path":"<path>","line":123,"title":"<short title>","status":"open","anchor":"inline-ready","thread_id":null,"note_id":null}],"actions":[{"target":"SUMMARY","status":"unposted","note_id":null}],"supersedes":null}
+-->
 ```
 
-Omit empty sections except `Verification`. Keep P1/P2 findings concise. If there are no findings, write `No P1/P2 findings.` under `Findings`. For local reviews, omit `Action Ledger` and `Follow-Up` unless explicitly requested.
+Omit empty sections except `Verification`. Keep P1/P2 findings concise. If there are no findings, write `No P1/P2 findings.` under `Findings`. For local reviews, omit `Action Ledger`, `Follow-Up`, incremental fields, and state markers unless explicitly requested.
 
 ## Inline Comment Format
 

@@ -12,17 +12,24 @@ Use this skill only for `code-review-pull`. It defines how to gather GitLab cont
 1. Resolve MR:
    - `get_merge_request(project_id="<project>", mergeRequestIid=<iid>)`
    - or `get_merge_request(project_id="<project>", branchName="<branch>")`
-2. List files before diffs:
+2. Load previous AI review state:
+   - `get_merge_request_notes(project_id="<project>", mergeRequestIid=<iid>)`
+   - Parse the newest `ai-review-state:v1` marker if present.
+3. For incremental reviews, compare previous reviewed SHA to current head SHA:
+   - `get_branch_diffs` between `<previous_sha>` and `<current_sha>` using the MCP tool schema.
+   - If unavailable, use `list_merge_request_versions` / `get_merge_request_version`.
+   - If compare/version data is unavailable, fall back to current MR file listing and selected diffs.
+4. List files before full MR diffs:
    - `list_merge_request_changed_files(project_id="<project>", mergeRequestIid=<iid>, excluded_file_patterns=[...])`
-3. Fetch selected diffs in batches:
+5. Fetch selected diffs in batches:
    - `get_merge_request_file_diff(project_id="<project>", mergeRequestIid=<iid>, file_paths=["a","b","c"])`
    - Batch 3-5 files per call.
-4. Gather mode-specific signals:
+6. Gather mode-specific signals:
    - Quick: metadata, changed files, selected diffs.
    - Standard: add latest pipeline summary, approvals, conflicts, linked issue criteria if present.
    - Deep: add MR discussions, issue discussions, failed job excerpts, MR versions, and cross-MR overlap when useful.
 
-Never call full-diff methods first. Use full diff only for very small MRs when the file list proves it is safe.
+Never call full-diff methods first. For first-time reviews, use file listing before MR file diffs. For incremental reviews, use previous state plus compare/version data before current full MR diffs. Use full diff only for very small MRs when the file list proves it is safe.
 
 ## Excluded File Patterns
 
@@ -74,6 +81,7 @@ After the initial report, stay in the same session and accept review follow-up c
 Supported commands:
 
 - `post summary`: create one MR summary comment with the final report.
+- `post state`: create one compact MR note containing only the latest summary marker and `ai-review-state:v1` marker.
 - `draft P2-1`, `draft all P1/P2`: create draft notes for selected findings.
 - `publish draft <id>`, `publish drafts`: publish one draft note or all draft notes.
 - `post P1-1 inline`: create an inline MR thread for a finding with valid position data.
@@ -113,6 +121,7 @@ Do not treat vague agreement (`ok`, `looks good`, `accept`) as confirmation for 
 After confirmation only:
 
 - Summary comment: `create_note` with the full final report.
+- State-only comment: `create_note` with compact hidden state, used only when the user explicitly asks to persist state without posting the full summary.
 - Finding drafts: `create_draft_note` per selected P1/P2 finding.
 - Draft publishing: `publish_draft_note` or `bulk_publish_draft_notes`.
 - Draft rewrite: `update_draft_note` only for a draft note created or selected in this session.
@@ -156,5 +165,8 @@ Every summary comment must start with:
 Every summary comment must end with:
 
 ```md
-<!-- ai-review-summary: {"p1":0,"p2":0,"nits":0,"reviewed_files":0,"skipped_files":0,"mode":"standard","followup_ready":true} -->
+<!-- ai-review-summary: {"p1":0,"p2":0,"nits":0,"reviewed_files":0,"skipped_files":0,"mode":"standard","followup_ready":true,"state":"included"} -->
+<!-- ai-review-state:v1
+{"project":"<project>","mr":"!<iid>","reviewed_head":"<sha>","target_branch":"<branch>","mode":"standard","incremental":false,"reviewed_files":[],"skipped_files":[],"findings":[],"actions":[],"supersedes":null}
+-->
 ```
